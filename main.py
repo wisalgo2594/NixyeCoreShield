@@ -182,7 +182,7 @@ def obtener_conexion():
         host="db.nbcghqtyqszqgcbfoft.supabase.co",
         database="postgres",
         user="postgres",
-        password="AQUÍ_VA_TU_CONTRASEÑA_REAL", # Reemplaza esto con tu clave
+        password="Xm-Amu%2Fv5%40DdPS%2C", # Reemplaza esto con tu clave
         port=5432
     )
     return conexion
