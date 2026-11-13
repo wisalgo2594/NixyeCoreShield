@@ -11,6 +11,7 @@ import logging
 # Importaciones de la aplicación
 from app.api.v1.auth import router as auth_router
 from app.api.v1.users import router as users_router
+from app.api.v1.items import router as items_router  # Importación de items
 from app.core.config import settings
 from app.core.database import engine
 from app.models.entities import Base
@@ -57,21 +58,19 @@ app = FastAPI(
 )
 
 # 3. Configuración de Middlewares
-# Rate Limiting
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
-# CORS (Permite que cualquier frontend se conecte en desarrollo)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # En producción, cambia "*" por el dominio real de tu frontend
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 4. Manejo Global de Excepciones (Evolución de seguridad)
+# 4. Manejo Global de Excepciones
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Error no controlado en la ruta {request.url.path}: {exc}")
@@ -80,9 +79,10 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": "Ocurrió un error interno en el servidor. Contacte al administrador."},
     )
 
-# 5. Registro de Rutas (Routers)
+# 5. Registro de Rutas (Routers) - ¡Solo una vez!
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Autenticación"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["Usuarios"])
+app.include_router(items_router, prefix="/api/v1/items", tags=["Items"])
 
 # 6. Rutas Básicas (Ping / Health)
 @app.get("/", tags=["Sistema"])
@@ -98,11 +98,3 @@ async def root():
 @limiter.exempt
 async def health_check():
     return {"status": "ok", "environment": settings.ENVIRONMENT}
-
-app.include_router(auth_router, prefix="/api/v1/auth", tags=["Autenticación"])
-app.include_router(users_router, prefix="/api/v1/users", tags=["Usuarios"])
-# app/main.py (Router Registration addition)
-from app.api.v1.items import router as items_router
-
-# Justo donde registras tus demás routers:
-app.include_router(items_router, prefix="/api/v1/items", tags=["Items"])
