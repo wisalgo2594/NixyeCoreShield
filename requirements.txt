@@ -9,3 +9,5 @@ passlib[bcrypt]==1.7.4
 python-multipart==0.0.20
 slowapi==0.1.9
 email-validator==2.2.0
+trace-sentinel
+argon2-cffi
