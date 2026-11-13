@@ -1,90 +1,45 @@
-from fastapi import FastAPI, Header, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import random
+from fastapi import FastAPI, HTTPException
+from typing import Dict, Any
 
-app = FastAPI(title="Nuxia AI Enterprise Core", version="2.0")
+app = FastAPI(title="Nuxia AI Enterprise Core", version="1.0.0")
 
-# Habilitar CORS para que tu index.html local se conecte sin problemas
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Base de datos en memoria para la preventa
+DATABASE = {
+    "repartidores": {},
+    "telemetria": {}
+}
 
-# Modelos de Datos para la API
-class RegistroDeliveryPayload(BaseModel):
-    nombre: str
-    telefono: str
-    tipo_vehiculo: str
-    placa_vehiculo: str
-    horario_entrada: str
-    horario_salida: str
-
-class TelemetriaPayload(BaseModel):
-    id_calle: str
-    latitud: float
-    longitud: float
-
-# Base de datos en memoria para pruebas rápidas
-DB_REPARTIDORES = []
-DB_DISPOSITIVOS_ACTIVOS = {}
+@app.get("/")
+def read_root():
+    return {"system": "Nuxia AI Core Online", "status": "active"}
 
 @app.post("/api/delivery/vincular")
-def vincular_delivery(payload: RegistroDeliveryPayload, x_nuvio_token: str = Header(...)):
-    if x_nuvio_token != "token_demo_comercio":
-        raise HTTPException(status_code=401, detail="Token de comercio inválido o QR expirado.")
-    
-    id_calle_generado = f"REP-{random.randint(1000, 9999)}"
-    
-    nuevo_repartidor = {
-        "id_calle": id_calle_generado,
-        "nombre": payload.nombre,
-        "telefono": payload.telefono,
-        "vehiculo": payload.tipo_vehiculo,
-        "placa": payload.placa_vehiculo,
-        "entrada": payload.horario_entrada,
-        "salida": payload.horario_salida,
-        "estado": "Activo",
-        "token_sesion": f"sess_{random.randint(100000, 999999)}"
-    }
-    
-    DB_REPARTIDORES.append(nuevo_repartidor)
-    
-    return {
-        "status": "ok",
-        "id_calle": id_calle_generado,
-        "token_sesion": nuevo_repartidor["token_sesion"],
-        "mensaje": f"Repartidor enlazado con ID de calle {id_calle_generado}"
-    }
+def vincular_delivery(payload: Dict[Any, Any]):
+    delivery_id = payload.get("delivery_id")
+    if not delivery_id:
+        raise HTTPException(status_code=400, detail="delivery_id es obligatorio")
+    DATABASE["repartidores"][delivery_id] = {"estado": "activo", "token": "token_demo_" + delivery_id}
+    return {"message": "Delivery vinculado exitosamente", "delivery_id": delivery_id}
 
 @app.get("/api/delivery/flota")
-def obtener_flota(x_nuvio_token: str = Header(...)):
-    if x_nuvio_token != "token_demo_comercio":
-        raise HTTPException(status_code=401, detail="No autorizado.")
-    return {"flota": DB_REPARTIDORES}
+def obtener_flota():
+    return {"flota": DATABASE["repartidores"]}
 
 @app.post("/api/dispositivos/telemetria")
-def actualizar_posicion(payload: TelemetriaPayload):
-    DB_DISPOSITIVOS_ACTIVOS[payload.id_calle] = {
-        "lat": payload.latitud,
-        "lng": payload.longitud,
-        "ultima_senal": "Activa ahora"
-    }
-    return {"status": "actualizado"}
+def actualizar_telemetria(payload: Dict[Any, Any]):
+    device_id = payload.get("device_id")
+    lat = payload.get("lat")
+    lng = payload.get("lng")
+    DATABASE["telemetria"][device_id] = {"lat": lat, "lng": lng}
+    return {"status": "telemetria actualizada", "device_id": device_id}
 
 @app.post("/api/seguridad/revocar-dispositivo")
-def desenlazar_dispositivo(id_calle: str, x_nuvio_token: str = Header(...)):
-    if x_nuvio_token != "token_demo_comercio":
-        raise HTTPException(status_code=401, detail="No autorizado.")
-    
-    ultima_pos = DB_DISPOSITIVOS_ACTIVOS.get(id_calle, {"lat": -33.4489, "lng": -70.6693, "ultima_senal": "Desconocida"})
-    
-    # Remover de activos o marcar revocado
-    global DB_REPARTIDORES
-    DB_REPARTIDORES = [r for r in DB_REPARTIDORES if r["id_calle"] != id_calle]
+def revocar_dispositivo(payload: Dict[Any, Any]):
+    device_id = payload.get("device_id")
+    if device_id in DATABASE["telemetria"]:
+        posicion = DATABASE["telemetria"][device_id]
+        return {"action": "KILL_SWITCH_EXECUTED", "device_id": device_id, "last_known_gps": posicion}
+    return {"action": "KILL_SWITCH_EXECUTED", "device_id": device_id, "last_known_gps": {"lat": -33.4489, "lng": -70.6693}}
     
     return {
         "status": "revocado",
