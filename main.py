@@ -174,3 +174,15 @@ def activar_kill_switch(payload: Dict[Any, Any], request: Request):
         "device_id": device_id,
         "estado": "Aislado de la red de fletes por orden de seguridad"
     }
+    import psycopg2
+
+def obtener_conexion():
+    """Establece conexión directa con Supabase usando los parámetros de red"""
+    conexion = psycopg2.connect(
+        host="db.nbcghqtyqszqgcbfoft.supabase.co",
+        database="postgres",
+        user="postgres",
+        password="AQUÍ_VA_TU_CONTRASEÑA_REAL", # Reemplaza esto con tu clave
+        port=5432
+    )
+    return conexion
